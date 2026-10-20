@@ -1,0 +1,44 @@
+name: Обновление ленты
+
+on:
+  schedule:
+    # раз в сутки, 06:00 UTC = 09:00 по Москве
+    - cron: "0 6 * * *"
+  workflow_dispatch: {}   # кнопка для ручного запуска
+
+permissions:
+  contents: write
+
+concurrency:
+  group: vk-feed
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Забрать репозиторий
+        uses: actions/checkout@v4
+
+      - name: Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Зависимости
+        run: pip install --quiet requests pillow
+
+      - name: Собрать ленту
+        run: python scripts/update_feed.py
+
+      - name: Сохранить изменения
+        run: |
+          git config user.name  "vk-feed-bot"
+          git config user.email "vk-feed-bot@users.noreply.github.com"
+          git add feed.json img || true
+          if git diff --staged --quiet; then
+            echo "Новых постов нет"
+          else
+            git commit -m "лента: обновление $(date -u +'%Y-%m-%d %H:%M UTC')"
+            git push
+          fi
